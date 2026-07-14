@@ -19,9 +19,31 @@ jobs:
       - name: Package binary
         run: |
           # 创建目标文件夹
-          mkdir sqlite3-dist
-          # 将编译好的模块打包为 tar.gz (Windows自带tar命令)
-          tar -czvf sqlite3-v5.1.7-napi-v36-win32-x64.tar.gz -C node_modules/sqlite3/lib/binding napi-v36-win32-x64
+          # 1. 先打印出 sqlite3 模块的实际目录结构，方便排查
+          Write-Host "Listing sqlite3 binding directories..."
+          Get-ChildItem -Path "node_modules/sqlite3" -Recurse -Directory | Select-Object FullName
+          
+          # 2. 创建目标文件夹
+          New-Item -ItemType Directory -Force -Path "sqlite3-dist"
+          
+          # 3. 尝试查找包含 win32-x64 的 .node 文件并打包
+          # 这里使用通配符来兼容不同的目录层级
+          $nodeFile = Get-ChildItem -Path "node_modules/sqlite3" -Recurse -Filter "node_sqlite3.node" | Where-Object { $_.FullName -match "win32-x64" } | Select-Object -First 1
+          
+          if ($nodeFile) {
+              Write-Host "Found node_sqlite3.node at: $($nodeFile.FullName)"
+              # 将找到的文件复制到目标文件夹，保持原有的相对目录结构
+              $relativePath = $nodeFile.FullName.Replace((Resolve-Path "node_modules/sqlite3").Path, "").TrimStart("\")
+              $destDir = Join-Path "sqlite3-dist" (Split-Path $relativePath -Parent)
+              New-Item -ItemType Directory -Force -Path $destDir | Out-Null
+              Copy-Item $nodeFile.FullName -Destination $destDir
+              
+              # 打包 sqlite3-dist 文件夹
+              tar -czvf sqlite3-v5.1.7-napi-v36-win32-x64.tar.gz -C sqlite3-dist .
+          } else {
+              Write-Host "Error: Could not find node_sqlite3.node for win32-x64"
+              exit 1
+          }
         shell: pwsh
 
       - name: Upload Artifact
