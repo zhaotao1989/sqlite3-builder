@@ -8,43 +8,42 @@ jobs:
     runs-on: windows-latest
 
     steps:
+      # 1. 设置 Node.js 环境
       - name: Setup Node.js
         uses: actions/setup-node@v3
         with:
           node-version: '18' # 确保 Node 版本与你的 napi-v36 兼容
 
-      # 👇 新增步骤：安装 Windows C++ 编译工具链
-      - name: Install Windows Build Tools
-        uses: microsoft/setup-msbuild@v1.1
-        # 或者使用更底层的 python 和 make 工具
-      - name: Setup Python and Make
-        uses: actions/setup-python@v4
-        with:
-          python-version: '3.x'
+      # 2. 初始化 MSVC 开发者命令行环境 (解决 node-gyp 报错的核心)
+      - name: Setup MSVC Developer Command Prompt
+        uses: ilammy/msvc-dev-cmd@v1
 
-      # 👇 修改步骤：强制从源码编译 sqlite3
+      # 3. 强制从源码编译 sqlite3
       - name: Install and Compile sqlite3
         run: npm install sqlite3@5.1.7 --build-from-source
 
+      # 4. 智能查找并打包二进制文件
       - name: Package binary
         run: |
-          # 1. 打印出 sqlite3 模块的实际目录结构，方便排查
+          # 打印 sqlite3 模块的实际目录结构，方便排查
           Write-Host "Listing sqlite3 binding directories..."
           Get-ChildItem -Path "node_modules/sqlite3" -Recurse -Directory | Select-Object FullName
           
-          # 2. 创建目标文件夹
+          # 创建目标文件夹
           New-Item -ItemType Directory -Force -Path "sqlite3-dist"
           
-          # 3. 递归查找 node_sqlite3.node 并打包
+          # 递归查找包含 win32-x64 的 node_sqlite3.node 文件
           $nodeFile = Get-ChildItem -Path "node_modules/sqlite3" -Recurse -Filter "node_sqlite3.node" | Where-Object { $_.FullName -match "win32-x64" } | Select-Object -First 1
           
           if ($nodeFile) {
               Write-Host "Found node_sqlite3.node at: $($nodeFile.FullName)"
+              # 计算相对路径并复制到目标文件夹，保持原有目录结构
               $relativePath = $nodeFile.FullName.Replace((Resolve-Path "node_modules/sqlite3").Path, "").TrimStart("\")
               $destDir = Join-Path "sqlite3-dist" (Split-Path $relativePath -Parent)
               New-Item -ItemType Directory -Force -Path $destDir | Out-Null
               Copy-Item $nodeFile.FullName -Destination $destDir
               
+              # 打包为 tar.gz
               tar -czvf sqlite3-v5.1.7-napi-v36-win32-x64.tar.gz -C sqlite3-dist .
           } else {
               Write-Host "Error: Could not find node_sqlite3.node for win32-x64"
@@ -52,6 +51,7 @@ jobs:
           }
         shell: pwsh
 
+      # 5. 上传编译产物
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
