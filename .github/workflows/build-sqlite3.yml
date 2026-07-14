@@ -20,7 +20,9 @@ jobs:
 
       # 3. 强制从源码编译 sqlite3
       - name: Install and Compile sqlite3
-        run: npm install sqlite3@5.1.7 --build-from-source
+        run: |
+          npm config set msvs_version 2022
+          npm install sqlite3@5.1.7 --build-from-source
 
       # 4. 智能查找并打包二进制文件
       - name: Package binary
