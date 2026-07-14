@@ -20,10 +20,11 @@ jobs:
       # 安装并编译 sqlite3
       - name: Install and Compile sqlite3
         run: |
-          # 核心修复：强制指定使用 VS 2022
-          npm config set msvs_version 2022
+          # 核心修复：通过环境变量强制指定使用 VS 2022
+          $env:npm_config_msvs_version = "2022"
           # 强制从源码编译
           npm install sqlite3@5.1.7 --build-from-source
+        shell: pwsh
 
       # 打包二进制文件
       - name: Package binary
