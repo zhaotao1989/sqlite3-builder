@@ -1,0 +1,31 @@
+name: Build sqlite3 for Windows
+
+on:
+  workflow_dispatch: # 允许在 GitHub 网页上手动触发构建
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18' # 确保 Node 版本与你的 napi-v36 兼容
+
+      - name: Install sqlite3
+        run: npm install sqlite3@5.1.7
+
+      - name: Package binary
+        run: |
+          # 创建目标文件夹
+          mkdir sqlite3-dist
+          # 将编译好的模块打包为 tar.gz (Windows自带tar命令)
+          tar -czvf sqlite3-v5.1.7-napi-v36-win32-x64.tar.gz -C node_modules/sqlite3/lib/binding napi-v36-win32-x64
+        shell: pwsh
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: sqlite3-v5.1.7-napi-v36-win32-x64
+          path: sqlite3-v5.1.7-napi-v36-win32-x64.tar.gz
